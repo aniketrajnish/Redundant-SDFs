@@ -1,7 +1,6 @@
-PyOpenGL
-PyOpenGL-accelerate
 numpy
-glfw
 PyQt5
 polyscope
 gpytoolbox
+scipy
+tqdm

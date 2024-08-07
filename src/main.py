@@ -1,11 +1,10 @@
-import sys
-from PyQt5 import QtWidgets
-from gui import VizWindow
+from extract import extract_sdf
+from visualize import viz_sdf
 
 def main():
-    app = QtWidgets.QApplication(sys.argv)
-    viz_window = VizWindow()
-    sys.exit(app.exec_())
+    mesh = 'src/data/bunny_mid.obj'
+    pts, sdf = extract_sdf(mesh)
+    viz_sdf(pts, sdf, mesh)
 
 if __name__ == '__main__':
     main()
