@@ -7,12 +7,11 @@ def main():
     # mod_mesh_path = modify_mesh(mesh_path, 75)
 
     pts, sdf = extract_sdf(SampleMethod.PROXIMITY, mesh_path, 
-                           num_samples=12500, batch_size=500, sigma=0.1)
+                           num_samples=1250000, batch_size=50000, sigma=0.1)
     
     reconstructor = Reconstructor(pts, sdf, mesh_path)
 
-    reconstructor.reconstruct(ReconstructionMethod.REACH_FOR_THE_SPHERES, 
-                              max_iter=1000000000000, tol=1e-2)
+    reconstructor.reconstruct(ReconstructionMethod.ALL, num_iters=2)
 
 if __name__ == '__main__':
     main()
