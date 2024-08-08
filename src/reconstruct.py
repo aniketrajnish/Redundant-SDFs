@@ -5,6 +5,7 @@ from enum import Enum
 from tqdm import tqdm
 from scipy.interpolate import griddata
 from skimage import measure
+from fitness import fitness
 
 class ReconstructionMethod(Enum):
     MARCHING_CUBES = 1
@@ -84,6 +85,9 @@ class Reconstructor:
                                                    smooth_shade=True)
             mc_remeshed.translate([0, 0, 0])
 
+            mc_fitness = fitness(v_orig, v_mc_remeshed)
+            print(f'marching cube fitness: {mc_fitness}')
+
         if method == ReconstructionMethod.ALL or method == ReconstructionMethod.REACH_FOR_THE_SPHERES:
             num_iters = kwargs.get('num_iters', 5)
             self.reach_for_spheres(num_iters)
@@ -93,6 +97,9 @@ class Reconstructor:
                                                     f_rfs_remeshed, 
                                                     smooth_shade=True)
             rfs_remeshed.translate([2, 0, 0])
+
+            rfs_fitness = fitness(v_orig, v_rfs_remeshed)
+            print(f'reach for the spheres fitness: {rfs_fitness}')
 
         slice_plane = ps.add_scene_slice_plane()
 
