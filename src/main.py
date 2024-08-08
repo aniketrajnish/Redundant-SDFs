@@ -11,7 +11,7 @@ def main():
     
     reconstructor = Reconstructor(pts, sdf, mesh_path)
 
-    reconstructor.reconstruct(ReconstructionMethod.ALL, num_iters=2)
+    reconstructor.reconstruct(ReconstructionMethod.ALL, num_iters=5)
 
 if __name__ == '__main__':
     main()
