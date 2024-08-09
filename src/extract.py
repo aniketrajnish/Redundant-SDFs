@@ -33,6 +33,6 @@ def extract_sdf(method: SampleMethod, mesh, num_samples=12500, batch_size=500, s
         end = min(i + batch_size, num_samples)
         sdf[i:end], _, _ = gpy.signed_distance(P[i:end], v, f)
 
-    print('Extracted SDF')
+    print('extracted sdf!')
 
     return P, sdf

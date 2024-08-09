@@ -10,7 +10,8 @@ from fitness import fitness
 class ReconstructionMethod(Enum):
     MARCHING_CUBES = 1
     REACH_FOR_THE_SPHERES = 2
-    ALL = 3
+    REACH_FOR_THE_ARCS = 3
+    ALL = 4
 
 class Reconstructor:
     def __init__(self, pts, sdf, mesh_path):
@@ -18,10 +19,15 @@ class Reconstructor:
         self.sdf = sdf
         self.mesh_path = mesh_path
         self.grid_sdf = None
+        self.init_recon_data()
+
+    def init_recon_data(self):
         self.reconstructed_v_mc = None
         self.reconstructed_f_mc = None
         self.reconstructed_v_rfs = None
         self.reconstructed_f_rfs = None
+        self.reconstructed_v_rfa = None
+        self.reconstructed_f_rfa = None
 
     def marching_cubes(self, grid_res=128):
         print('performing marching cubes...')
@@ -48,7 +54,7 @@ class Reconstructor:
         self.reconstructed_v_mc, self.reconstructed_f_mc = verts, faces
 
     def reach_for_spheres(self, num_iters=5):
-        print('performing reach for spheres...')
+        print('performing reach for the spheres...')
         v_init, f_init = gpy.icosphere(2)
         v_init = gpy.normalize_points(v_init)
 
@@ -59,6 +65,27 @@ class Reconstructor:
                 self.pts, sdf_func, v_init, f_init
             )
             v_init, f_init = self.reconstructed_v_rfs, self.reconstructed_f_rfs
+
+    def reach_for_arcs(self, **kwargs):
+        print('performing reach for the arcs...')
+        self.reconstructed_v_rfa, self.reconstructed_f_rfa = gpy.reach_for_the_arcs(
+            self.pts, self.sdf,
+            rng_seed=kwargs.get('rng_seed', 3452),
+            fine_tune_iters=kwargs.get('fine_tune_iters', 3),
+            batch_size=kwargs.get('batch_size', 10000),
+            num_rasterization_spheres=kwargs.get('num_rasterization_spheres', 0),
+            screening_weight=kwargs.get('screening_weight', 10.0),
+            rasterization_resolution=kwargs.get('rasterization_resolution', None),
+            max_points_per_sphere=kwargs.get('max_points_per_sphere', 3),
+            n_local_searches=kwargs.get('n_local_searches', None),
+            local_search_iters=kwargs.get('local_search_iters', 20),
+            local_search_t=kwargs.get('local_search_t', 0.01),
+            tol=kwargs.get('tol', 0.0001),
+            clamp_value=kwargs.get('clamp_value', np.Inf),
+            force_cpu=kwargs.get('force_cpu', False),
+            parallel=kwargs.get('parallel', False),
+            verbose=kwargs.get('verbose', False)
+        )
 
     def remesh(self, v, f, target_len=None, num_iters=10):
         print('remeshing...')
@@ -73,42 +100,39 @@ class Reconstructor:
         v_orig = gpy.normalize_points(v_orig)
 
         original_mesh = ps.register_surface_mesh('ground truth', v_orig, f_orig, smooth_shade=True)
-        original_mesh.translate([-2, 0, 0])
+        original_mesh.translate([-3, 0, 0])
 
-        if method == ReconstructionMethod.ALL or method == ReconstructionMethod.MARCHING_CUBES:
+        if method in [ReconstructionMethod.ALL, ReconstructionMethod.MARCHING_CUBES]:
             grid_res = kwargs.get('grid_res', 128)
             self.marching_cubes(grid_res)
             v_mc_remeshed, f_mc_remeshed = self.remesh(self.reconstructed_v_mc, self.reconstructed_f_mc)
-            mc_remeshed = ps.register_surface_mesh('mc', 
-                                                   v_mc_remeshed, 
-                                                   f_mc_remeshed, 
-                                                   smooth_shade=True)
-            mc_remeshed.translate([0, 0, 0])
-
+            mc_remeshed = ps.register_surface_mesh('mc', v_mc_remeshed, f_mc_remeshed, smooth_shade=True)
+            mc_remeshed.translate([-1, 0, 0])
             mc_fitness = fitness(v_orig, v_mc_remeshed)
-            print(f'marching cube fitness: {mc_fitness}')
+            print(f'Marching Cubes fitness: {mc_fitness}')
 
-        if method == ReconstructionMethod.ALL or method == ReconstructionMethod.REACH_FOR_THE_SPHERES:
+        if method in [ReconstructionMethod.ALL, ReconstructionMethod.REACH_FOR_THE_SPHERES]:
             num_iters = kwargs.get('num_iters', 5)
             self.reach_for_spheres(num_iters)
             v_rfs_remeshed, f_rfs_remeshed = self.remesh(self.reconstructed_v_rfs, self.reconstructed_f_rfs)
-            rfs_remeshed = ps.register_surface_mesh('rfs', 
-                                                    v_rfs_remeshed, 
-                                                    f_rfs_remeshed, 
-                                                    smooth_shade=True)
-            rfs_remeshed.translate([2, 0, 0])
-
+            rfs_remeshed = ps.register_surface_mesh('rfs', v_rfs_remeshed, f_rfs_remeshed, smooth_shade=True)
+            rfs_remeshed.translate([1, 0, 0])
             rfs_fitness = fitness(v_orig, v_rfs_remeshed)
-            print(f'reach for the spheres fitness: {rfs_fitness}')
+            print(f'Reach for the Spheres fitness: {rfs_fitness}')
+
+        if method in [ReconstructionMethod.ALL, ReconstructionMethod.REACH_FOR_THE_ARCS]:
+            self.reach_for_arcs(**kwargs)
+            v_rfa_remeshed, f_rfa_remeshed = self.remesh(self.reconstructed_v_rfa, self.reconstructed_f_rfa)
+            rfa_remeshed = ps.register_surface_mesh('rfa', v_rfa_remeshed, f_rfa_remeshed, smooth_shade=True)
+            rfa_remeshed.translate([3, 0, 0])
+            rfa_fitness = fitness(v_orig, v_rfa_remeshed)
+            print(f'Reach for the Arcs fitness: {rfa_fitness}')
 
         slice_plane = ps.add_scene_slice_plane()
-
         original_mesh.set_ignore_slice_plane(slice_plane.get_name(), True)
 
-        if mc_remeshed:
-            mc_remeshed.set_ignore_slice_plane(slice_plane.get_name(), True)
-        
-        if rfs_remeshed:
-            rfs_remeshed.set_ignore_slice_plane(slice_plane.get_name(), True)
+        for mesh in [mc_remeshed, rfs_remeshed, rfa_remeshed]:
+            if mesh:
+                mesh.set_ignore_slice_plane(slice_plane.get_name(), True)
 
         ps.show()
