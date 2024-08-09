@@ -1,23 +1,19 @@
 import numpy as np
 import polyscope as ps
 import gpytoolbox as gpy
-from enum import Enum
 from tqdm import tqdm
 from scipy.interpolate import griddata
 from skimage import measure
 from fitness import fitness
-
-class ReconstructionMethod(Enum):
-    MARCHING_CUBES = 1
-    REACH_FOR_THE_SPHERES = 2
-    REACH_FOR_THE_ARCS = 3
-    ALL = 4
+from render import render_imgs
+from enums import ReconstructionMethod
 
 class Reconstructor:
     def __init__(self, pts, sdf, mesh_path):
         self.pts = pts
         self.sdf = sdf
         self.mesh_path = mesh_path
+        
         self.grid_sdf = None
         self.init_recon_data()
 
@@ -93,7 +89,7 @@ class Reconstructor:
             target_len = np.mean(gpy.halfedge_lengths(v, f))
         return gpy.remesh_botsch(v, f, i=num_iters, h=target_len, project=True)
 
-    def reconstruct(self, method: ReconstructionMethod, **kwargs):
+    def reconstruct(self, method: ReconstructionMethod, render=False, **kwargs):
         ps.init()
 
         v_orig, f_orig = gpy.read_mesh(self.mesh_path)
@@ -102,6 +98,8 @@ class Reconstructor:
         original_mesh = ps.register_surface_mesh('ground truth', v_orig, f_orig, smooth_shade=True)
         original_mesh.translate([-3, 0, 0])
 
+        meshes = [original_mesh]
+
         if method in [ReconstructionMethod.ALL, ReconstructionMethod.MARCHING_CUBES]:
             grid_res = kwargs.get('grid_res', 128)
             self.marching_cubes(grid_res)
@@ -109,7 +107,8 @@ class Reconstructor:
             mc_remeshed = ps.register_surface_mesh('mc', v_mc_remeshed, f_mc_remeshed, smooth_shade=True)
             mc_remeshed.translate([-1, 0, 0])
             mc_fitness = fitness(v_orig, v_mc_remeshed)
-            print(f'Marching Cubes fitness: {mc_fitness}')
+            print(f'marching cubes fitness: {mc_fitness}')
+            meshes.append(mc_remeshed)
 
         if method in [ReconstructionMethod.ALL, ReconstructionMethod.REACH_FOR_THE_SPHERES]:
             num_iters = kwargs.get('num_iters', 5)
@@ -118,7 +117,8 @@ class Reconstructor:
             rfs_remeshed = ps.register_surface_mesh('rfs', v_rfs_remeshed, f_rfs_remeshed, smooth_shade=True)
             rfs_remeshed.translate([1, 0, 0])
             rfs_fitness = fitness(v_orig, v_rfs_remeshed)
-            print(f'Reach for the Spheres fitness: {rfs_fitness}')
+            print(f'reach for the spheres fitness: {rfs_fitness}')
+            meshes.append(rfs_remeshed)
 
         if method in [ReconstructionMethod.ALL, ReconstructionMethod.REACH_FOR_THE_ARCS]:
             self.reach_for_arcs(**kwargs)
@@ -126,13 +126,15 @@ class Reconstructor:
             rfa_remeshed = ps.register_surface_mesh('rfa', v_rfa_remeshed, f_rfa_remeshed, smooth_shade=True)
             rfa_remeshed.translate([3, 0, 0])
             rfa_fitness = fitness(v_orig, v_rfa_remeshed)
-            print(f'Reach for the Arcs fitness: {rfa_fitness}')
+            print(f'reach for the arcs fitness: {rfa_fitness}')
+            meshes.append(rfa_remeshed)
 
         slice_plane = ps.add_scene_slice_plane()
-        original_mesh.set_ignore_slice_plane(slice_plane.get_name(), True)
+        for mesh in meshes:
+            mesh.set_ignore_slice_plane(slice_plane.get_name(), True)
 
-        for mesh in [mc_remeshed, rfs_remeshed, rfa_remeshed]:
-            if mesh:
-                mesh.set_ignore_slice_plane(slice_plane.get_name(), True)
-
+        if render:
+            render_imgs(meshes)
+        
         ps.show()
+        
