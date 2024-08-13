@@ -3,12 +3,13 @@ import polyscope as ps
 import gpytoolbox as gpy
 from tqdm import tqdm
 from scipy.interpolate import griddata
+from scipy.spatial import cKDTree
 from skimage import measure
 from fitness import fitness
 from render import render_imgs
-from enums import ReconstructionMethod
+from enums import SDFReconstructionMethod
 
-class Reconstructor:
+class SDFReconstructor:
     def __init__(self, pts, sdf, mesh_path):
         self.pts = pts
         self.sdf = sdf
@@ -89,7 +90,7 @@ class Reconstructor:
             target_len = np.mean(gpy.halfedge_lengths(v, f))
         return gpy.remesh_botsch(v, f, i=num_iters, h=target_len, project=True)
 
-    def reconstruct(self, method: ReconstructionMethod, render=False, **kwargs):
+    def reconstruct(self, method: SDFReconstructionMethod, render=False, **kwargs):
         ps.init()
 
         v_orig, f_orig = gpy.read_mesh(self.mesh_path)
@@ -100,7 +101,7 @@ class Reconstructor:
 
         meshes = [original_mesh]
 
-        if method in [ReconstructionMethod.ALL, ReconstructionMethod.MARCHING_CUBES]:
+        if method in [SDFReconstructionMethod.ALL, SDFReconstructionMethod.MARCHING_CUBES]:
             grid_res = kwargs.get('grid_res', 128)
             self.marching_cubes(grid_res)
             v_mc_remeshed, f_mc_remeshed = self.remesh(self.reconstructed_v_mc, self.reconstructed_f_mc)
@@ -110,7 +111,7 @@ class Reconstructor:
             print(f'marching cubes fitness: {mc_fitness}')
             meshes.append(mc_remeshed)
 
-        if method in [ReconstructionMethod.ALL, ReconstructionMethod.REACH_FOR_THE_SPHERES]:
+        if method in [SDFReconstructionMethod.ALL, SDFReconstructionMethod.REACH_FOR_THE_SPHERES]:
             num_iters = kwargs.get('num_iters', 5)
             self.reach_for_spheres(num_iters)
             v_rfs_remeshed, f_rfs_remeshed = self.remesh(self.reconstructed_v_rfs, self.reconstructed_f_rfs)
@@ -120,7 +121,7 @@ class Reconstructor:
             print(f'reach for the spheres fitness: {rfs_fitness}')
             meshes.append(rfs_remeshed)
 
-        if method in [ReconstructionMethod.ALL, ReconstructionMethod.REACH_FOR_THE_ARCS]:
+        if method in [SDFReconstructionMethod.ALL, SDFReconstructionMethod.REACH_FOR_THE_ARCS]:
             self.reach_for_arcs(**kwargs)
             v_rfa_remeshed, f_rfa_remeshed = self.remesh(self.reconstructed_v_rfa, self.reconstructed_f_rfa)
             rfa_remeshed = ps.register_surface_mesh('rfa', v_rfa_remeshed, f_rfa_remeshed, smooth_shade=True)
@@ -138,3 +139,60 @@ class Reconstructor:
         
         ps.show()
         
+class VDFReconstructor:
+    def __init__(self, mesh_path, pts=None, sdf=None, grid_res=50):
+        self.mesh_path = mesh_path
+        self.grid_res = grid_res
+        self.grid_shape = (grid_res, grid_res, grid_res)
+        
+        self.V = None
+        self.F = None
+        self.grid_vertices = pts
+        self.signed_distance = sdf
+        self.vector_distance = None
+        self.vdf_pts = None
+
+    def load_mesh(self):
+        self.V, self.F = gpy.read_mesh(self.mesh_path)
+        self.V = gpy.normalize_points(self.V)    
+
+    def compute_gradient(self):
+        def finite_difference(f, axis):
+            f_pos = np.roll(f, shift=-1, axis=axis)
+            f_neg = np.roll(f, shift=1, axis=axis)
+            f_pos[0] = f[0]  # neumann boundary condition
+            f_neg[-1] = f[-1]
+            return (f_pos - f_neg) / 2.0
+        
+        distance_grid = self.signed_distance.reshape(self.grid_shape)
+        gradients = np.zeros((np.prod(self.grid_shape), 3))
+        for dim in range(3):
+            grad = finite_difference(distance_grid, axis=dim).flatten()
+            gradients[:, dim] = grad
+        
+        magnitudes = np.linalg.norm(gradients, axis=1, keepdims=True)
+        magnitudes = np.clip(magnitudes, a_min=1e-10, a_max=None)
+        normalized_gradients = gradients / magnitudes
+
+        signed_distance_reshaped = self.signed_distance.reshape(-1, 1)
+        self.vector_distance = -1 * normalized_gradients * signed_distance_reshaped
+        self.vector_distance[:, [0, 1, 2]] = self.vector_distance[:, [1, 0, 2]]
+
+    def compute_surface_points(self):
+        self.vdf_pts = self.grid_vertices + self.vector_distance
+        # distances = np.linalg.norm(self.vdf_pts, axis=1)
+        # self.vdf_pts = self.vdf_pts[distances <= 0.9]
+
+    def reconstruct(self):
+        self.load_mesh()
+        self.compute_gradient()
+        self.compute_surface_points()        
+        self.visualize()
+
+    def visualize(self):
+        ps.init()
+        ps.register_surface_mesh("original_mesh", self.V, self.F)
+        ps_net = ps.register_point_cloud("vdf", self.grid_vertices, enabled=False)
+        ps_net.add_vector_quantity("vectors", self.vector_distance, "ambient")
+        ps.register_point_cloud("vdf_pts", self.vdf_pts, radius=0.001)
+        ps.show()
