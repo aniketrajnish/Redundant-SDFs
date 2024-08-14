@@ -37,7 +37,7 @@ def main():
     sdf_sample_method = SampleMethod.PROXIMITY # SampleMethod.RANDOM for random sampling
                                                # PROXIMITY samples points near the mesh surface and generally gives better results
 
-    # uncomment the following line to run SDF reconstruction
+    # uncomment the following lines to run SDF reconstruction
     # run_sdf_reconstruction(mesh_path, grid_res=128, 
     #                        num_samples=125000, batch_size=5000, render = render,
     #                        sigma=0.1, sdf_sample_method=sdf_sample_method,
