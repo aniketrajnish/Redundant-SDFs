@@ -144,16 +144,18 @@ class VDFReconstructor:
         self.mesh_path = mesh_path
         self.grid_res = grid_res
         self.grid_shape = (grid_res, grid_res, grid_res)
-        
-        self.V = None
-        self.F = None
         self.grid_vertices = pts
         self.signed_distance = sdf
+
+        self.init_recon_data()
+
+    def init_recon_data(self):        
+        self.V = None
+        self.F = None
         self.vector_distance = None
         self.vdf_pts = None
         self.face_indices = None
         self.barycentric_coords = None
-        self.cartesian_coordinates = None
 
     def load_mesh(self):
         self.V, self.F = gpy.read_mesh(self.mesh_path)
@@ -183,8 +185,8 @@ class VDFReconstructor:
 
     def compute_barycentric(self):
         self.signed_distance, self.face_indices, self.barycentric_coords = gpy.signed_distance(self.grid_vertices, self.V, self.F)
-        self.cartesian_coordinates = self.barycentric_to_cartesian()
-        self.vector_distance = self.grid_vertices - self.cartesian_coordinates
+        self.vdf_pts = self.barycentric_to_cartesian()
+        self.vector_distance = self.grid_vertices - self.vdf_pts
         magnitudes = np.linalg.norm(self.vector_distance, axis=1, keepdims=True)
         self.vector_distance = self.vector_distance / magnitudes
 
@@ -203,9 +205,10 @@ class VDFReconstructor:
 
         if method == VDFReconstructionMethod.GRADIENT:            
             self.compute_gradient()
+            self.compute_surface_points()
         elif method == VDFReconstructionMethod.BARYCENTRIC:
             self.compute_barycentric()
-        self.compute_surface_points()        
+
         self.visualize(method, render)
 
     def visualize(self, method: VDFReconstructionMethod, render=False):
@@ -221,12 +224,10 @@ class VDFReconstructor:
             ps_net.add_vector_quantity("vectors", self.vector_distance, "ambient")
             vdf_cloud = ps.register_point_cloud("vdf_pts", self.vdf_pts, radius=0.01)
             vdf_cloud.translate([1.5, 0, 0])
-            meshes.append(vdf_cloud)
 
         elif method == VDFReconstructionMethod.BARYCENTRIC:
-            cartesian_cloud = ps.register_point_cloud("cartesian_coordinates", self.cartesian_coordinates, radius=0.01)
+            cartesian_cloud = ps.register_point_cloud("vdf_pts", self.vdf_pts, radius=0.01)
             cartesian_cloud.translate([1.5, 0, 0])
-            meshes.append(cartesian_cloud)
 
         slice_plane = ps.add_scene_slice_plane()
         for mesh in meshes:

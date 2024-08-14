@@ -30,7 +30,7 @@ def run_vdf_reconstruction(mesh_path, sdf_sample_method = SampleMethod.PROXIMITY
 def main():
     mesh_path = 'src/data/model/bunny.obj'
 
-    render = False # set to True to render the results
+    render = True # set to True to render the results
                   # VDF reconstruction would run into an error as we have a point cloud and not a mesh
                   # will add a check for this tomorrow / convert the point cloud to a mesh
 
@@ -45,7 +45,7 @@ def main():
 
     run_vdf_reconstruction(mesh_path, grid_res=50, sdf_sample_method=sdf_sample_method, render = render,
                            vdf_reconstruction_method=VDFReconstructionMethod.BARYCENTRIC) # change vdf_reconstruction_method to GRADIENT to view results of gradient method   
-                                                                                       # BAYCENTRIC generally gives better results                         
+                                                                                          # BAYCENTRIC generally gives better results                         
 
 if __name__ == '__main__':
     main()
