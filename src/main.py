@@ -31,8 +31,6 @@ def main():
     mesh_path = 'src/data/model/bunny.obj'
 
     render = True # set to True to render the results
-                  # VDF reconstruction would run into an error as we have a point cloud and not a mesh
-                  # will add a check for this tomorrow / convert the point cloud to a mesh
 
     sdf_sample_method = SampleMethod.PROXIMITY # SampleMethod.RANDOM for random sampling
                                                # PROXIMITY samples points near the mesh surface and generally gives better results
