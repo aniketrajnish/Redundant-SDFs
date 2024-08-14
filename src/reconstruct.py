@@ -7,7 +7,7 @@ from scipy.spatial import cKDTree
 from skimage import measure
 from fitness import fitness
 from render import render_imgs
-from enums import SDFReconstructionMethod
+from enums import SDFReconstructionMethod, VDFReconstructionMethod
 
 class SDFReconstructor:
     def __init__(self, pts, sdf, mesh_path):
@@ -140,7 +140,7 @@ class SDFReconstructor:
         ps.show()
         
 class VDFReconstructor:
-    def __init__(self, mesh_path, pts=None, sdf=None, grid_res=50):
+    def __init__(self, mesh_path, grid_res=50, sdf=None, pts=None):
         self.mesh_path = mesh_path
         self.grid_res = grid_res
         self.grid_shape = (grid_res, grid_res, grid_res)
@@ -151,10 +151,13 @@ class VDFReconstructor:
         self.signed_distance = sdf
         self.vector_distance = None
         self.vdf_pts = None
+        self.face_indices = None
+        self.barycentric_coords = None
+        self.cartesian_coordinates = None
 
     def load_mesh(self):
         self.V, self.F = gpy.read_mesh(self.mesh_path)
-        self.V = gpy.normalize_points(self.V)    
+        self.V = gpy.normalize_points(self.V)
 
     def compute_gradient(self):
         def finite_difference(f, axis):
@@ -178,21 +181,65 @@ class VDFReconstructor:
         self.vector_distance = -1 * normalized_gradients * signed_distance_reshaped
         self.vector_distance[:, [0, 1, 2]] = self.vector_distance[:, [1, 0, 2]]
 
+    def compute_barycentric(self):
+        self.signed_distance, self.face_indices, self.barycentric_coords = gpy.signed_distance(self.grid_vertices, self.V, self.F)
+        self.cartesian_coordinates = self.barycentric_to_cartesian()
+        self.vector_distance = self.grid_vertices - self.cartesian_coordinates
+        magnitudes = np.linalg.norm(self.vector_distance, axis=1, keepdims=True)
+        self.vector_distance = self.vector_distance / magnitudes
+
+    def barycentric_to_cartesian(self):
+        cartesian_coords = np.zeros((self.barycentric_coords.shape[0], 3))
+        face_vertex_coordinates = self.V[self.F[self.face_indices]]
+        for i, (bary_coords, face_vertices) in enumerate(zip(self.barycentric_coords, face_vertex_coordinates)):
+            cartesian_coords[i] = np.dot(bary_coords, face_vertices)
+        return cartesian_coords
+
     def compute_surface_points(self):
-        self.vdf_pts = self.grid_vertices + self.vector_distance
-        # distances = np.linalg.norm(self.vdf_pts, axis=1)
-        # self.vdf_pts = self.vdf_pts[distances <= 0.9]
+        self.vdf_pts = self.grid_vertices + self.vector_distance * self.signed_distance.reshape(-1, 1)
 
-    def reconstruct(self):
+    def reconstruct(self, method: VDFReconstructionMethod, render=False):
         self.load_mesh()
-        self.compute_gradient()
-        self.compute_surface_points()        
-        self.visualize()
+        if self.grid_vertices is None:
+            # If grid vertices were not provided, create them
+            x = np.linspace(-1, 1, self.grid_res)
+            y = np.linspace(-1, 1, self.grid_res)
+            z = np.linspace(-1, 1, self.grid_res)
+            X, Y, Z = np.meshgrid(x, y, z)
+            self.grid_vertices = np.c_[X.flatten(), Y.flatten(), Z.flatten()]
 
-    def visualize(self):
+        if method == VDFReconstructionMethod.GRADIENT:            
+            self.compute_gradient()
+        elif method == VDFReconstructionMethod.BARYCENTRIC:
+            self.compute_barycentric()
+        self.compute_surface_points()        
+        self.visualize(method, render)
+
+    def visualize(self, method: VDFReconstructionMethod, render=False):
         ps.init()
-        ps.register_surface_mesh("original_mesh", self.V, self.F)
-        ps_net = ps.register_point_cloud("vdf", self.grid_vertices, enabled=False)
-        ps_net.add_vector_quantity("vectors", self.vector_distance, "ambient")
-        ps.register_point_cloud("vdf_pts", self.vdf_pts, radius=0.001)
+        
+        original_mesh = ps.register_surface_mesh("original_mesh", self.V, self.F, smooth_shade=True)
+        original_mesh.translate([-1.5, 0, 0])
+        
+        meshes = [original_mesh]
+
+        if method == VDFReconstructionMethod.GRADIENT:
+            ps_net = ps.register_point_cloud("vdf", self.grid_vertices, enabled=False)
+            ps_net.add_vector_quantity("vectors", self.vector_distance, "ambient")
+            vdf_cloud = ps.register_point_cloud("vdf_pts", self.vdf_pts, radius=0.01)
+            vdf_cloud.translate([1.5, 0, 0])
+            meshes.append(vdf_cloud)
+
+        elif method == VDFReconstructionMethod.BARYCENTRIC:
+            cartesian_cloud = ps.register_point_cloud("cartesian_coordinates", self.cartesian_coordinates, radius=0.01)
+            cartesian_cloud.translate([1.5, 0, 0])
+            meshes.append(cartesian_cloud)
+
+        slice_plane = ps.add_scene_slice_plane()
+        for mesh in meshes:
+            mesh.set_ignore_slice_plane(slice_plane.get_name(), True)
+
+        if render:
+            render_imgs(meshes)
+        
         ps.show()

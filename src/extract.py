@@ -2,7 +2,7 @@ import numpy as np
 import gpytoolbox as gpy
 from enums import SampleMethod, SDFMethod
 
-def extract_sdf(sample_method: SampleMethod, mesh, num_samples=12500, batch_size=500, sigma=0.1, sdf_method=SDFMethod.SAMPLE, grid_res=50):
+def extract_sdf(sample_method: SampleMethod, mesh, num_samples=1250000, batch_size=50000, sigma=0.1, sdf_method=SDFMethod.SAMPLE, grid_res=50):
     print('extracting sdf...')
 
     v, f = gpy.read_mesh(mesh)
