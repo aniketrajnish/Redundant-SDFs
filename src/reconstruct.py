@@ -237,3 +237,66 @@ class VDFReconstructor:
             render_imgs(meshes)
         
         ps.show()
+
+class RayReconstructor:
+    def __init__(self, mesh_path, num_rays=100000, bounds=(-1, 1)):
+        self.mesh_path = mesh_path
+        self.num_rays = num_rays
+        self.bounds = bounds
+        
+        self.V = None
+        self.F = None
+        self.intersection_points = None
+        self.intersection_normals = None
+
+    def load_mesh(self):
+        self.V, self.F = gpy.read_mesh(self.mesh_path)
+        self.V = gpy.normalize_points(self.V)
+
+    def shoot_random_rays(self):
+        print('Shooting random rays...')
+        origins = np.random.uniform(self.bounds[0], self.bounds[1], (self.num_rays, 3))
+        directions = np.random.randn(self.num_rays, 3)
+        directions /= np.linalg.norm(directions, axis=1)[:, np.newaxis]
+
+        intersection_points = []
+        intersection_normals = []
+
+        for origin, direction in tqdm(zip(origins, directions), total=self.num_rays, desc="Shooting rays"):
+            t = 0
+            point = origin
+            while t < 2:  # Limit the ray length to avoid infinite loops
+                sdf_value, _, normal = gpy.signed_distance(point.reshape(1, -1), self.V, self.F)
+                if abs(sdf_value[0]) < 1e-4:  # We've hit the surface
+                    intersection_points.append(point)
+                    intersection_normals.append(normal[0])
+                    break
+                point += direction * sdf_value[0]
+                t += abs(sdf_value[0])
+
+        self.intersection_points = np.array(intersection_points)
+        self.intersection_normals = np.array(intersection_normals)
+
+        print(f"Found {len(self.intersection_points)} intersection points.")
+
+    def reconstruct(self, render=False):
+        self.load_mesh()
+        self.shoot_random_rays()
+        self.visualize(render)
+
+    def visualize(self, render=False):
+        ps.init()
+        
+        original_mesh = ps.register_surface_mesh("original_mesh", self.V, self.F, smooth_shade=True)
+        original_mesh.translate([-1.5, 0, 0])
+
+        meshes = [original_mesh]
+        
+        intersection_cloud = ps.register_point_cloud("intersection_points", self.intersection_points, enabled=True)
+        intersection_cloud.add_vector_quantity("normals", self.intersection_normals, enabled=True)
+        intersection_cloud.translate([1.5, 0, 0])        
+
+        if render:
+            render_imgs(meshes)
+        
+        ps.show()
