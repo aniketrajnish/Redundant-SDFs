@@ -200,13 +200,6 @@ class VDFReconstructor:
 
     def reconstruct(self, method: VDFReconstructionMethod, render=False):
         self.load_mesh()
-        if self.grid_vertices is None:
-            # If grid vertices were not provided, create them
-            x = np.linspace(-1, 1, self.grid_res)
-            y = np.linspace(-1, 1, self.grid_res)
-            z = np.linspace(-1, 1, self.grid_res)
-            X, Y, Z = np.meshgrid(x, y, z)
-            self.grid_vertices = np.c_[X.flatten(), Y.flatten(), Z.flatten()]
 
         if method == VDFReconstructionMethod.GRADIENT:            
             self.compute_gradient()
