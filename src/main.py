@@ -33,7 +33,7 @@ def run_ray_reconstruction(mesh_path, num_rays=100000,
     reconstructor.reconstruct(render=render)
 
 def main():
-    mesh_path = 'src/data/model/bunny_mid.obj'
+    mesh_path = 'src/data/model/bunny_lo.obj'
 
     render = True # set to True to render the results
 
@@ -50,7 +50,7 @@ def main():
     #                        vdf_reconstruction_method=VDFReconstructionMethod.BARYCENTRIC) # change vdf_reconstruction_method to GRADIENT to view results of gradient method   
                                                                                           # BAYCENTRIC generally gives better results       
                                                                                           
-    run_ray_reconstruction(mesh_path, num_rays=1000, bounds=(-1, 1), render=render)               
+    run_ray_reconstruction(mesh_path, num_rays=100000, bounds=(-1, 1), render=render)               
 
 if __name__ == '__main__':
     main()

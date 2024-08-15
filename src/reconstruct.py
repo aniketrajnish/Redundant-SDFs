@@ -243,11 +243,16 @@ class RayReconstructor:
         self.mesh_path = mesh_path
         self.num_rays = num_rays
         self.bounds = bounds
-        
+
+        self.init_recon_data()
+
+    def init_recon_data(self):        
         self.V = None
         self.F = None
         self.intersection_points = None
         self.intersection_normals = None
+        self.reconstructed_v = None
+        self.reconstructed_f = None
 
     def load_mesh(self):
         self.V, self.F = gpy.read_mesh(self.mesh_path)
@@ -279,9 +284,16 @@ class RayReconstructor:
 
         print(f"Found {len(self.intersection_points)} intersection points.")
 
+    def poisson_surface_reconstruction(self):
+        print('Performing Poisson surface reconstruction...')
+        self.reconstructed_v, self.reconstructed_f = gpy.point_cloud_to_mesh(
+            self.intersection_points, self.intersection_normals
+        )
+
     def reconstruct(self, render=False):
         self.load_mesh()
         self.shoot_random_rays()
+        self.poisson_surface_reconstruction()
         self.visualize(render)
 
     def visualize(self, render=False):
@@ -290,11 +302,13 @@ class RayReconstructor:
         original_mesh = ps.register_surface_mesh("original_mesh", self.V, self.F, smooth_shade=True)
         original_mesh.translate([-1.5, 0, 0])
 
-        meshes = [original_mesh]
+        reconstructed_mesh = ps.register_surface_mesh("reconstructed_mesh", self.reconstructed_v, self.reconstructed_f, smooth_shade=True)
+        reconstructed_mesh.translate([1.5, 0, 0])
+
+        meshes = [original_mesh, reconstructed_mesh]
         
         intersection_cloud = ps.register_point_cloud("intersection_points", self.intersection_points, enabled=True)
         intersection_cloud.add_vector_quantity("normals", self.intersection_normals, enabled=True)
-        intersection_cloud.translate([1.5, 0, 0])        
 
         if render:
             render_imgs(meshes)
