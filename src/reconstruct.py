@@ -116,7 +116,7 @@ class SDFReconstructor:
             self.reach_for_spheres(num_iters)
             v_rfs_remeshed, f_rfs_remeshed = self.remesh(self.reconstructed_v_rfs, self.reconstructed_f_rfs)
             rfs_remeshed = ps.register_surface_mesh('rfs', v_rfs_remeshed, f_rfs_remeshed, smooth_shade=True)
-            rfs_remeshed.translate([1, 0, 0])
+            rfs_remeshed.translate([-1, 0, 0])
             rfs_fitness = fitness(v_orig, v_rfs_remeshed)
             print(f'reach for the spheres fitness: {rfs_fitness}')
             meshes.append(rfs_remeshed)
@@ -125,10 +125,14 @@ class SDFReconstructor:
             self.reach_for_arcs(**kwargs)
             v_rfa_remeshed, f_rfa_remeshed = self.remesh(self.reconstructed_v_rfa, self.reconstructed_f_rfa)
             rfa_remeshed = ps.register_surface_mesh('rfa', v_rfa_remeshed, f_rfa_remeshed, smooth_shade=True)
-            rfa_remeshed.translate([3, 0, 0])
+            rfa_remeshed.translate([-1, 0, 0])
             rfa_fitness = fitness(v_orig, v_rfa_remeshed)
             print(f'reach for the arcs fitness: {rfa_fitness}')
             meshes.append(rfa_remeshed)
+
+        if method == SDFReconstructionMethod.ALL:
+            rfs_remeshed.translate([1, 0, 0])
+            rfa_remeshed.translate([3, 0, 0])
 
         slice_plane = ps.add_scene_slice_plane()
         for mesh in meshes:
