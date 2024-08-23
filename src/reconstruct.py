@@ -52,7 +52,7 @@ class SDFReconstructor:
 
     def reach_for_spheres(self, num_iters=5):
         print('performing reach for the spheres...')
-        v_init, f_init = gpy.icosphere(2)
+        v_init, f_init = gpy.icosphere(4)
         v_init = gpy.normalize_points(v_init)
 
         sdf_func = lambda x: griddata(self.pts, self.sdf, x, method='linear', fill_value=np.max(self.sdf))
@@ -98,6 +98,13 @@ class SDFReconstructor:
 
         original_mesh = ps.register_surface_mesh('ground truth', v_orig, f_orig, smooth_shade=True)
         original_mesh.translate([-3, 0, 0])
+        rotate_y_90 = np.array([
+            [0, 0, 1, 0],
+            [0, 1, 0, 0],
+            [-1, 0, 0, 0],
+            [0, 0, 0, 1]
+        ])
+        original_mesh.set_transform(rotate_y_90 @ original_mesh.get_transform())
 
         meshes = [original_mesh]
 
@@ -107,6 +114,7 @@ class SDFReconstructor:
             v_mc_remeshed, f_mc_remeshed = self.remesh(self.reconstructed_v_mc, self.reconstructed_f_mc)
             mc_remeshed = ps.register_surface_mesh('mc', v_mc_remeshed, f_mc_remeshed, smooth_shade=True)
             mc_remeshed.translate([-1, 0, 0])
+            mc_remeshed.set_transform(rotate_y_90 @ mc_remeshed.get_transform())
             mc_fitness = fitness(v_orig, v_mc_remeshed)
             print(f'marching cubes fitness: {mc_fitness}')
             meshes.append(mc_remeshed)
@@ -117,6 +125,7 @@ class SDFReconstructor:
             v_rfs_remeshed, f_rfs_remeshed = self.remesh(self.reconstructed_v_rfs, self.reconstructed_f_rfs)
             rfs_remeshed = ps.register_surface_mesh('rfs', v_rfs_remeshed, f_rfs_remeshed, smooth_shade=True)
             rfs_remeshed.translate([-1, 0, 0])
+            rfs_remeshed.set_transform(rotate_y_90 @ rfs_remeshed.get_transform())
             rfs_fitness = fitness(v_orig, v_rfs_remeshed)
             print(f'reach for the spheres fitness: {rfs_fitness}')
             meshes.append(rfs_remeshed)
@@ -126,13 +135,14 @@ class SDFReconstructor:
             v_rfa_remeshed, f_rfa_remeshed = self.remesh(self.reconstructed_v_rfa, self.reconstructed_f_rfa)
             rfa_remeshed = ps.register_surface_mesh('rfa', v_rfa_remeshed, f_rfa_remeshed, smooth_shade=True)
             rfa_remeshed.translate([-1, 0, 0])
+            rfa_remeshed.set_transform(rotate_y_90 @ rfa_remeshed.get_transform())
             rfa_fitness = fitness(v_orig, v_rfa_remeshed)
             print(f'reach for the arcs fitness: {rfa_fitness}')
             meshes.append(rfa_remeshed)
 
         if method == SDFReconstructionMethod.ALL:
-            rfs_remeshed.translate([1, 0, 0])
-            rfa_remeshed.translate([3, 0, 0])
+            rfs_remeshed.translate([2, 0, 0])
+            rfa_remeshed.translate([4, 0, 0])
 
         slice_plane = ps.add_scene_slice_plane()
         for mesh in meshes:
@@ -242,7 +252,7 @@ class VDFReconstructor:
         
         ps.show()
 
-class RayReconstructor:
+class RayReconstructor: 
     def __init__(self, mesh_path, num_rays=100000, bounds=(-1, 1)):
         self.mesh_path = mesh_path
         self.num_rays = num_rays

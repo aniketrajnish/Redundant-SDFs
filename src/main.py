@@ -13,7 +13,7 @@ def run_sdf_reconstruction(mesh_path, sdf_sample_method = SampleMethod.PROXIMITY
     sdf_reconstructor = SDFReconstructor(pts_sdf, sdf_sdf, mesh_path)
 
     sdf_reconstructor.reconstruct(sdf_reconstruction_method, 
-                                  num_iters=10, render=render, 
+                                  num_iters=5, render=render, 
                                   grid_res=grid_res)
 
 def run_vdf_reconstruction(mesh_path, sdf_sample_method = SampleMethod.PROXIMITY, grid_res=50, 
@@ -26,14 +26,14 @@ def run_vdf_reconstruction(mesh_path, sdf_sample_method = SampleMethod.PROXIMITY
                                          sdf=sdf_vdf, pts=pts_vdf)
 
     vdf_reconstructor.reconstruct(method=vdf_reconstruction_method, render=render)
-
+3                 
 def run_ray_reconstruction(mesh_path, num_rays=100000, 
                            bounds=(-1, 1), render=False):
     reconstructor = RayReconstructor(mesh_path, num_rays, bounds)
     reconstructor.reconstruct(render=render)
 
 def main():
-    mesh_path = 'src/data/model/bunny_mid.obj'
+    mesh_path = 'src/data/model/spot.obj'
 
     render = True # set to True to render the results
 
@@ -42,9 +42,9 @@ def main():
 
     # uncomment the following lines to run SDF reconstruction
     run_sdf_reconstruction(mesh_path, grid_res=128, 
-                           num_samples=125000, batch_size=5000, render = render,
+                           num_samples=1250000, batch_size=50000, render = render,
                            sigma=0.1, sdf_sample_method=sdf_sample_method,
-                           sdf_reconstruction_method=SDFReconstructionMethod.REACH_FOR_THE_SPHERES) # change sdf_reconstruction_method to view results of individual methods
+                           sdf_reconstruction_method=SDFReconstructionMethod.MARCHING_CUBES) # change sdf_reconstruction_method to view results of individual methods
 
     # run_vdf_reconstruction(mesh_path, grid_res=50, sdf_sample_method=sdf_sample_method, render = render,
     #                        vdf_reconstruction_method=VDFReconstructionMethod.BARYCENTRIC) # change vdf_reconstruction_method to GRADIENT to view results of gradient method   
