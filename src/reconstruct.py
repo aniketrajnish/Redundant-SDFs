@@ -98,13 +98,6 @@ class SDFReconstructor:
 
         original_mesh = ps.register_surface_mesh('ground truth', v_orig, f_orig, smooth_shade=True)
         original_mesh.translate([-3, 0, 0])
-        rotate_y_90 = np.array([
-            [0, 0, 1, 0],
-            [0, 1, 0, 0],
-            [-1, 0, 0, 0],
-            [0, 0, 0, 1]
-        ])
-        original_mesh.set_transform(rotate_y_90 @ original_mesh.get_transform())
 
         meshes = [original_mesh]
 
@@ -114,7 +107,6 @@ class SDFReconstructor:
             v_mc_remeshed, f_mc_remeshed = self.remesh(self.reconstructed_v_mc, self.reconstructed_f_mc)
             mc_remeshed = ps.register_surface_mesh('mc', v_mc_remeshed, f_mc_remeshed, smooth_shade=True)
             mc_remeshed.translate([-1, 0, 0])
-            mc_remeshed.set_transform(rotate_y_90 @ mc_remeshed.get_transform())
             mc_fitness = fitness(v_orig, v_mc_remeshed)
             print(f'marching cubes fitness: {mc_fitness}')
             meshes.append(mc_remeshed)
@@ -124,8 +116,7 @@ class SDFReconstructor:
             self.reach_for_spheres(num_iters)
             v_rfs_remeshed, f_rfs_remeshed = self.remesh(self.reconstructed_v_rfs, self.reconstructed_f_rfs)
             rfs_remeshed = ps.register_surface_mesh('rfs', v_rfs_remeshed, f_rfs_remeshed, smooth_shade=True)
-            rfs_remeshed.translate([-1, 0, 0])
-            rfs_remeshed.set_transform(rotate_y_90 @ rfs_remeshed.get_transform())
+            rfs_remeshed.translate([1, 0, 0])
             rfs_fitness = fitness(v_orig, v_rfs_remeshed)
             print(f'reach for the spheres fitness: {rfs_fitness}')
             meshes.append(rfs_remeshed)
@@ -134,17 +125,28 @@ class SDFReconstructor:
             self.reach_for_arcs(**kwargs)
             v_rfa_remeshed, f_rfa_remeshed = self.remesh(self.reconstructed_v_rfa, self.reconstructed_f_rfa)
             rfa_remeshed = ps.register_surface_mesh('rfa', v_rfa_remeshed, f_rfa_remeshed, smooth_shade=True)
-            rfa_remeshed.translate([-1, 0, 0])
-            rfa_remeshed.set_transform(rotate_y_90 @ rfa_remeshed.get_transform())
+            rfa_remeshed.translate([3, 0, 0])
             rfa_fitness = fitness(v_orig, v_rfa_remeshed)
             print(f'reach for the arcs fitness: {rfa_fitness}')
             meshes.append(rfa_remeshed)
 
-        if method == SDFReconstructionMethod.ALL:
-            rfs_remeshed.translate([2, 0, 0])
-            rfa_remeshed.translate([4, 0, 0])
+        # Rotation matrix for 90 degrees around X-axis
+        # rotate_x_90 = np.array([
+        #     [1, 0, 0, 0],
+        #     [0, 0, -1, 0],
+        #     [0, 1, 0, 0],
+        #     [0, 0, 0, 1]
+        # ])
+
+        # for mesh in meshes:
+        #     current_transform = mesh.get_transform()            
+        #     current_translation = current_transform[:3, 3]            
+        #     rotated_transform = rotate_x_90 @ current_transform           
+        #     rotated_transform[:3, 3] = current_translation            
+        #     mesh.set_transform(rotated_transform)
 
         slice_plane = ps.add_scene_slice_plane()
+        
         for mesh in meshes:
             mesh.set_ignore_slice_plane(slice_plane.get_name(), True)
 
@@ -217,31 +219,46 @@ class VDFReconstructor:
     def reconstruct(self, method: VDFReconstructionMethod, render=False):
         self.load_mesh()
 
-        if method == VDFReconstructionMethod.GRADIENT:            
+        if method == VDFReconstructionMethod.GRADIENT or method == VDFReconstructionMethod.ALL:
             self.compute_gradient()
             self.compute_surface_points()
-        elif method == VDFReconstructionMethod.BARYCENTRIC:
+            gradient_vdf_pts = self.vdf_pts.copy()
+            gradient_vector_distance = self.vector_distance.copy()
+
+        if method == VDFReconstructionMethod.BARYCENTRIC or method == VDFReconstructionMethod.ALL:
             self.compute_barycentric()
+            barycentric_vdf_pts = self.vdf_pts.copy()
+            barycentric_vector_distance = self.vector_distance.copy()
 
-        self.visualize(method, render)
+        self.visualize(method, render, gradient_vdf_pts if 'gradient_vdf_pts' in locals() else None,
+                       barycentric_vdf_pts if 'barycentric_vdf_pts' in locals() else None,
+                       gradient_vector_distance if 'gradient_vector_distance' in locals() else None)
 
-    def visualize(self, method: VDFReconstructionMethod, render=False):
+    def visualize(self, method: VDFReconstructionMethod, render=False, gradient_vdf_pts=None, barycentric_vdf_pts=None, gradient_vector_distance=None):
         ps.init()
         
         original_mesh = ps.register_surface_mesh("original_mesh", self.V, self.F, smooth_shade=True)
-        original_mesh.translate([-1.5, 0, 0])
+        original_mesh.translate([-1, 0, 0])
         
         meshes = [original_mesh]
 
-        if method == VDFReconstructionMethod.GRADIENT:
-            ps_net = ps.register_point_cloud("vdf", self.grid_vertices, enabled=False)
-            ps_net.add_vector_quantity("vectors", self.vector_distance, "ambient")
-            vdf_cloud = ps.register_point_cloud("vdf_pts", self.vdf_pts, radius=0.01)
-            vdf_cloud.translate([1.5, 0, 0])
+        if method == VDFReconstructionMethod.GRADIENT or method == VDFReconstructionMethod.ALL:
+            ps_net = ps.register_point_cloud("vdf_gradient", self.grid_vertices, enabled=False)
+            ps_net.add_vector_quantity("vectors", gradient_vector_distance, "ambient")
+            gradient_cloud = ps.register_point_cloud("vdf_pts_gradient", gradient_vdf_pts, radius=0.01)
+            if method == VDFReconstructionMethod.ALL:
+                gradient_cloud.translate([0, 0, 0])
+            else:
+                gradient_cloud.translate([1, 0, 0])
+            # meshes.append(gradient_cloud)
 
-        elif method == VDFReconstructionMethod.BARYCENTRIC:
-            cartesian_cloud = ps.register_point_cloud("vdf_pts", self.vdf_pts, radius=0.01)
-            cartesian_cloud.translate([1.5, 0, 0])
+        if method == VDFReconstructionMethod.BARYCENTRIC or method == VDFReconstructionMethod.ALL:
+            barycentric_cloud = ps.register_point_cloud("vdf_pts_barycentric", barycentric_vdf_pts, radius=0.01)
+            if method == VDFReconstructionMethod.ALL:
+                barycentric_cloud.translate([5, 0, 0])
+            else:
+                barycentric_cloud.translate([1, 0, 0])
+            # meshes.append(barycentric_cloud)
 
         slice_plane = ps.add_scene_slice_plane()
         for mesh in meshes:
@@ -273,7 +290,7 @@ class RayReconstructor:
         self.V = gpy.normalize_points(self.V)
 
     def shoot_random_rays(self):
-        print('Shooting random rays...')
+        print('shooting random rays...')
         origins = np.random.uniform(self.bounds[0], self.bounds[1], (self.num_rays, 3))
         directions = np.random.randn(self.num_rays, 3)
         directions /= np.linalg.norm(directions, axis=1)[:, np.newaxis]
@@ -296,10 +313,10 @@ class RayReconstructor:
         self.intersection_points = np.array(intersection_points)
         self.intersection_normals = np.array(intersection_normals)
 
-        print(f"Found {len(self.intersection_points)} intersection points.")
+        print(f"found {len(self.intersection_points)} intersection points.")
 
     def poisson_surface_reconstruction(self):
-        print('Performing Poisson surface reconstruction...')
+        print('performing psr...')
         self.reconstructed_v, self.reconstructed_f = gpy.point_cloud_to_mesh(
             self.intersection_points, self.intersection_normals
         )
