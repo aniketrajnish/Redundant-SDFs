@@ -17,4 +17,5 @@ class SDFReconstructionMethod(Enum):
 class VDFReconstructionMethod(Enum):
     GRADIENT = 1
     BARYCENTRIC = 2
-    ALL = 3
+    CENTROID_NORMAL = 3
+    ALL = 4

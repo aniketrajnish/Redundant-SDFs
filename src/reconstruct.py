@@ -172,6 +172,8 @@ class VDFReconstructor:
         self.vdf_pts = None
         self.face_indices = None
         self.barycentric_coords = None
+        self.reconstructed_v_cn = None
+        self.reconstructed_f_cn = None
 
     def load_mesh(self):
         self.V, self.F = gpy.read_mesh(self.mesh_path)
@@ -216,25 +218,33 @@ class VDFReconstructor:
     def compute_surface_points(self):
         self.vdf_pts = self.grid_vertices + self.vector_distance * self.signed_distance.reshape(-1, 1)
 
-    def reconstruct(self, method: VDFReconstructionMethod, render=False):
-        self.load_mesh()
+    def compute_centroid_normal(self):
+        print('computing centroid-normal reconstruction...')
+        
+        def compute_triangle_centroids(vertices, faces):
+            return np.mean(vertices[faces], axis=1)
 
-        if method == VDFReconstructionMethod.GRADIENT or method == VDFReconstructionMethod.ALL:
-            self.compute_gradient()
-            self.compute_surface_points()
-            gradient_vdf_pts = self.vdf_pts.copy()
-            gradient_vector_distance = self.vector_distance.copy()
+        def compute_face_normals(vertices, faces):
+            v0, v1, v2 = vertices[faces[:, 0]], vertices[faces[:, 1]], vertices[faces[:, 2]]
+            normals = np.cross(v1 - v0, v2 - v0)
+            return normals / np.linalg.norm(normals, axis=1, keepdims=True)
 
-        if method == VDFReconstructionMethod.BARYCENTRIC or method == VDFReconstructionMethod.ALL:
-            self.compute_barycentric()
-            barycentric_vdf_pts = self.vdf_pts.copy()
-            barycentric_vector_distance = self.vector_distance.copy()
+        centroids = compute_triangle_centroids(self.V, self.F)
+        normals = compute_face_normals(self.V, self.F)
 
-        self.visualize(method, render, gradient_vdf_pts if 'gradient_vdf_pts' in locals() else None,
-                       barycentric_vdf_pts if 'barycentric_vdf_pts' in locals() else None,
-                       gradient_vector_distance if 'gradient_vector_distance' in locals() else None)
+        # Double-sided representation
+        self.vdf_pts = np.concatenate((centroids, centroids), axis=0)
+        self.vector_distance = np.concatenate((normals, -1 * normals), axis=0)
 
-    def visualize(self, method: VDFReconstructionMethod, render=False, gradient_vdf_pts=None, barycentric_vdf_pts=None, gradient_vector_distance=None):
+    def reconstruct_centroid_normal(self):
+        print('performing centroid-normal reconstruction...')
+        self.reconstructed_v_cn, self.reconstructed_f_cn = gpy.point_cloud_to_mesh(
+            self.vdf_pts, self.vector_distance, method='PSR', 
+            psr_screening_weight=10.0, psr_depth=10
+        )
+
+    def visualize(self, method: VDFReconstructionMethod, render=False, gradient_vdf_pts=None, 
+                  barycentric_vdf_pts=None, centroid_normal_vdf_pts=None, gradient_vector_distance=None):
         ps.init()
         
         original_mesh = ps.register_surface_mesh("original_mesh", self.V, self.F, smooth_shade=True)
@@ -246,17 +256,23 @@ class VDFReconstructor:
             ps_net = ps.register_point_cloud("vdf_gradient", self.grid_vertices, enabled=False)
             ps_net.add_vector_quantity("vectors", gradient_vector_distance, "ambient")
             gradient_cloud = ps.register_point_cloud("vdf_pts_gradient", gradient_vdf_pts, radius=0.01)
-            if method == VDFReconstructionMethod.ALL:
-                gradient_cloud.translate([0, 0, 0])
-            else:
-                gradient_cloud.translate([1, 0, 0])
+            gradient_cloud.translate([1, 0, 0])
 
         if method == VDFReconstructionMethod.BARYCENTRIC or method == VDFReconstructionMethod.ALL:
             barycentric_cloud = ps.register_point_cloud("vdf_pts_barycentric", barycentric_vdf_pts, radius=0.01)
-            if method == VDFReconstructionMethod.ALL:
-                barycentric_cloud.translate([5, 0, 0])
-            else:
-                barycentric_cloud.translate([1, 0, 0])
+            barycentric_cloud.translate([1, 0, 0])
+
+        if method == VDFReconstructionMethod.CENTROID_NORMAL or method == VDFReconstructionMethod.ALL:
+            centroid_normal_cloud = ps.register_point_cloud("centroid_normal_cloud", 
+                                                            centroid_normal_vdf_pts, 
+                                                            radius=0.01)
+            centroid_normal_cloud.add_vector_quantity("normals", self.vector_distance, enabled=False)
+            centroid_normal_cloud.translate([1, 0, 0])
+
+        if method == VDFReconstructionMethod.ALL:
+            original_mesh.translate([-2, 0, 0])
+            gradient_cloud.translate([-2,0,0])
+            centroid_normal_cloud.translate([2, 0, 0])
 
         slice_plane = ps.add_scene_slice_plane()
         for mesh in meshes:
@@ -266,6 +282,28 @@ class VDFReconstructor:
             render_imgs(meshes)
         
         ps.show()
+
+    def reconstruct(self, method: VDFReconstructionMethod, render=False):
+        self.load_mesh()
+
+        gradient_vdf_pts = barycentric_vdf_pts = centroid_normal_vdf_pts = gradient_vector_distance = None
+
+        if method == VDFReconstructionMethod.GRADIENT or method == VDFReconstructionMethod.ALL:
+            self.compute_gradient()
+            self.compute_surface_points()
+            gradient_vdf_pts = self.vdf_pts.copy()
+            gradient_vector_distance = self.vector_distance.copy()
+
+        if method == VDFReconstructionMethod.BARYCENTRIC or method == VDFReconstructionMethod.ALL:
+            self.compute_barycentric()
+            barycentric_vdf_pts = self.vdf_pts.copy()
+
+        if method == VDFReconstructionMethod.CENTROID_NORMAL or method == VDFReconstructionMethod.ALL:
+            self.compute_centroid_normal()
+            centroid_normal_vdf_pts = self.vdf_pts.copy()
+
+        self.visualize(method, render, gradient_vdf_pts, barycentric_vdf_pts, 
+                       centroid_normal_vdf_pts, gradient_vector_distance)
 
 class RayReconstructor: 
     def __init__(self, mesh_path, num_rays=100000, bounds=(-1, 1)):

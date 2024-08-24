@@ -33,7 +33,7 @@ def run_ray_reconstruction(mesh_path, num_rays=100000,
     reconstructor.reconstruct(render=render)
 
 def main():
-    mesh_path = 'src/data/model/bunny.obj'
+    mesh_path = 'src/data/model/bunny_mid.obj'
 
     render = True # set to True to render the results
 
@@ -46,11 +46,11 @@ def main():
     #                        sigma=0.1, sdf_sample_method=sdf_sample_method,
     #                        sdf_reconstruction_method=SDFReconstructionMethod.ALL) # change sdf_reconstruction_method to view results of individual methods
 
-    run_vdf_reconstruction(mesh_path, grid_res=64, sdf_sample_method=sdf_sample_method, render = render,
-                           vdf_reconstruction_method=VDFReconstructionMethod.ALL) # change vdf_reconstruction_method to GRADIENT to view results of gradient method   
-                                                                                          # BAYCENTRIC generally gives better results       
+    # run_vdf_reconstruction(mesh_path, grid_res=64, sdf_sample_method=sdf_sample_method, render = render,
+    #                        vdf_reconstruction_method=VDFReconstructionMethod.ALL) # change vdf_reconstruction_method to GRADIENT to view results of gradient method   
+    #                                                                                       # BAYCENTRIC generally gives better results       
                                                                                           
-    # run_ray_reconstruction(mesh_path, num_rays=100000, bounds=(-1, 1), render=render)   
+    run_ray_reconstruction(mesh_path, num_rays=1000000, bounds=(-1, 1), render=render)   
 
 if __name__ == '__main__':
     main()
