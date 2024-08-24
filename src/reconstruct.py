@@ -250,7 +250,6 @@ class VDFReconstructor:
                 gradient_cloud.translate([0, 0, 0])
             else:
                 gradient_cloud.translate([1, 0, 0])
-            # meshes.append(gradient_cloud)
 
         if method == VDFReconstructionMethod.BARYCENTRIC or method == VDFReconstructionMethod.ALL:
             barycentric_cloud = ps.register_point_cloud("vdf_pts_barycentric", barycentric_vdf_pts, radius=0.01)
@@ -258,7 +257,6 @@ class VDFReconstructor:
                 barycentric_cloud.translate([5, 0, 0])
             else:
                 barycentric_cloud.translate([1, 0, 0])
-            # meshes.append(barycentric_cloud)
 
         slice_plane = ps.add_scene_slice_plane()
         for mesh in meshes:
