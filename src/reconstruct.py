@@ -375,7 +375,7 @@ class RayReconstructor:
         meshes = [original_mesh, reconstructed_mesh]
         
         intersection_cloud = ps.register_point_cloud("intersection_points", self.intersection_points, enabled=True)
-        intersection_cloud.add_vector_quantity("normals", self.intersection_normals, enabled=True)
+        intersection_cloud.add_vector_quantity("normals", self.intersection_normals, enabled=False)
 
         if render:
             render_imgs(meshes)
