@@ -1,7 +1,7 @@
 # Redundant-SDFs
 
 Incorporating redundancies into SDFs for better surface representations and evolution of it. Additionally, exploring how to better train neural networks to encode such redundant representations.
-See the details on our blog here: [https://summergeometry.org/sgi2024/redundant-sdfs/](https://summergeometry.org/sgi2024/redundant-sdfs/)
+<br>See the details on our blog here: [https://summergeometry.org/sgi2024/redundant-sdfs/](https://summergeometry.org/sgi2024/redundant-sdfs/)
 
 ### SDF Based Reconstruction
 We extract the SDF of a mesh, then perform existing algorithms for reconstruction over it.
