@@ -7,6 +7,6 @@ See the details on our blog here: [https://summergeometry.org/sgi2024/redundant-
 
 <div align =center>
   <img src="https://github.com/user-attachments/assets/44538c85-8fa0-4d4f-b914-5018f546dbd6" alt="plt" style="width: 80%;"/>
-<br> **From left to right:** Ground Truth, Marching Cubes, Reach for the Spheres, Reach for the Arcs
+<br> <b>From left to right:</b> Ground Truth, Marching Cubes, Reach for the Spheres, Reach for the Arcs
 </div>
 
